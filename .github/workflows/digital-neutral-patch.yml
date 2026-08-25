@@ -1,0 +1,29 @@
+name: Digital filter color consistency patch
+
+on:
+  push:
+    paths:
+      - '.github/workflows/digital-neutral-patch.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - name: Apply patch
+        run: python .github/scripts/digital_neutral_patch.py
+      - name: Commit patch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add index.html
+          if ! git diff --cached --quiet; then
+            git commit -m "Keep tech filter courses neutral gray"
+            git push origin HEAD:main
+          fi
