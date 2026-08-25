@@ -1,0 +1,98 @@
+name: One-time roadmap mobile hotfix
+
+on:
+  push:
+    paths:
+      - '.github/workflows/roadmap-mobile-hotfix.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.event.head_commit.message == 'Add one-time roadmap mobile hotfix'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Patch roadmap UI
+        shell: python
+        run: |
+          from pathlib import Path
+
+          p = Path('index.html')
+          s = p.read_text(encoding='utf-8')
+
+          css = r'''
+          /* 2026-08-25 mobile readability hotfix */
+          .trackBtn{font-size:15px;font-weight:850;min-height:54px;padding-inline:19px}
+          .sceneWrap{min-height:700px;background:radial-gradient(circle at 50% 16%,rgba(40,88,124,.42),transparent 34%),linear-gradient(180deg,#09111d,#050912)}
+          canvas{height:700px}
+          .semHud{width:92px;left:10px;top:72px;bottom:16px}
+          .semHud div{border:1px solid #53627f;background:rgba(15,24,39,.96);color:#fff;font-size:14px;padding:10px 10px;box-shadow:0 8px 22px rgba(0,0,0,.24)}
+          .semHud small{color:#c4cee2;font-size:10px}
+          .hint{background:rgba(10,17,29,.92);border-color:#465673;color:#d8e1f2;font-weight:800}
+          @media(max-width:720px){
+            .sceneWrap{min-height:720px}
+            canvas{height:720px;width:calc(100% - 94px);margin-left:94px}
+            .semHud{width:86px;left:5px;top:14px;bottom:14px}
+            .semHud div{font-size:13px;padding:9px 8px;border-radius:13px}
+            .semHud small{font-size:10px;line-height:1.15}
+            .hint{display:none}
+            .trackBtn{font-size:16px;min-height:56px;padding-inline:19px}
+          }
+          @media(max-width:430px){
+            .sceneWrap{min-height:700px}
+            canvas{height:700px;width:calc(100% - 90px);margin-left:90px}
+            .semHud{width:82px;left:4px}
+          }
+          '''
+
+          old_head = '</style></head>'
+          new_head = '</style>\n<style>' + css + '</style></head>'
+
+          replacements = [
+            (old_head, new_head),
+            ("function semY(sem){ return 22 - SEMS.indexOf(sem)*6.0; }", "function semY(sem){ return 23.5 - SEMS.indexOf(sem)*6.8; }"),
+            ("x.fillStyle='rgba(8,12,20,.96)';", "x.fillStyle='rgba(18,28,44,.99)';"),
+            ("x.lineWidth=6;", "x.lineWidth=10;"),
+            ("x.shadowBlur=foundation?22:(core?28:18);", "x.shadowBlur=foundation?32:(core?40:28);"),
+            ("x.fillStyle=foundation?'#ebfeff':'#f7fbff';", "x.fillStyle='#ffffff';"),
+            ("const font1=core?72:64; const font2=core?60:54;", "const font1=core?98:88; const font2=core?84:76;"),
+            ("x.fillStyle='rgba(155,170,196,.85)'; x.font='700 32px sans-serif';", "x.fillStyle='rgba(220,230,246,.96)'; x.font='800 38px sans-serif';"),
+            ("sprite.scale.set(opts.foundation?11.8:(opts.core?13.0:11.6), opts.foundation?3.2:(opts.core?3.6:3.15),1);", "sprite.scale.set(opts.foundation?13.2:(opts.core?15.0:13.2), opts.foundation?3.6:(opts.core?4.15:3.6),1);"),
+            ("scene.fog=new THREE.FogExp2(0x05070d,0.02); camera=new THREE.PerspectiveCamera(36,1,.1,250); camera.position.set(0,4.4,56);", "scene.fog=new THREE.FogExp2(0x05070d,0.004); camera=new THREE.PerspectiveCamera(42,1,.1,250); camera.position.set(0,3.8,64);"),
+            ("function foundationPos(course){ const rows={'1-1':[-8.5,-2.7,2.7,8.5],'1-2':[-8.5,-2.7,2.7,8.5]}; const ids=FOUNDATION.filter(id=>courseMap[id].s===course.s); const idx=ids.indexOf(course.id); return new THREE.Vector3(rows[course.s][idx], semY(course.s), semZ(course.s)+1.4); }", "function foundationPos(course){ const ids=FOUNDATION.filter(id=>courseMap[id].s===course.s); const idx=ids.indexOf(course.id); const layout=[[-7,-1.9],[7,-1.9],[-7,1.9],[7,1.9]]; const [x,y]=layout[idx]||[0,0]; return new THREE.Vector3(x, semY(course.s)+y, semZ(course.s)+1.4); }"),
+            ("out[id]=new THREE.Vector3(base, semY(sem)+(i-(bucket.core.length-1)/2)*1.8, semZ(sem));", "out[id]=new THREE.Vector3(base, semY(sem)+(i-(bucket.core.length-1)/2)*4.3, semZ(sem));"),
+            ("const spread=activeTrack==='all'?6.8:8.2;", "const spread=activeTrack==='all'?11.0:14.0;"),
+            ("if(activeTrack==='all'){ node.targetOpacity=node.role==='core'?1:.86; node.targetScale=node.role==='core'?1:.96; } else if(isSelTrack){ node.targetOpacity=node.role==='core'?1:.92; node.targetScale=node.role==='core'?1.08:1; } else { node.targetOpacity=.08; node.targetScale=.88; }", "if(activeTrack==='all'){ node.targetOpacity=node.role==='core'?1:0; node.targetScale=node.role==='core'?1:.9; } else if(isSelTrack){ node.targetOpacity=node.role==='core'?1:.78; node.targetScale=node.role==='core'?1.08:.98; } else { node.targetOpacity=0; node.targetScale=.84; }"),
+            ("if(activeTrack==='all'){ branchLines[track].mainLine.material.opacity=.78; branchLines[track].glowLine.material.opacity=.16; branchLines[track].supportLine.material.opacity=.24; } else if(activeTrack===track){ branchLines[track].mainLine.material.opacity=.96; branchLines[track].glowLine.material.opacity=pulse; branchLines[track].supportLine.material.opacity=.42; } else { branchLines[track].mainLine.material.opacity=.08; branchLines[track].glowLine.material.opacity=.02; branchLines[track].supportLine.material.opacity=.04; }", "if(activeTrack==='all'){ branchLines[track].mainLine.material.opacity=.88; branchLines[track].glowLine.material.opacity=.22; branchLines[track].supportLine.material.opacity=0; } else if(activeTrack===track){ branchLines[track].mainLine.material.opacity=1; branchLines[track].glowLine.material.opacity=pulse; branchLines[track].supportLine.material.opacity=.3; } else { branchLines[track].mainLine.material.opacity=0; branchLines[track].glowLine.material.opacity=0; branchLines[track].supportLine.material.opacity=0; }"),
+            ("const hits=raycaster.intersectObjects(nodeRegistry.map(n=>n.sprite));", "const hits=raycaster.intersectObjects(nodeRegistry.filter(n=>n.opacity>.2).map(n=>n.sprite));"),
+            ("document.querySelectorAll('.trackBtn').forEach(btn=>btn.addEventListener('click',()=>{ activeTrack=btn.dataset.track; selectedNode=null; document.querySelectorAll('.trackBtn').forEach(b=>b.classList.toggle('active',b===btn)); setOverview(); renderGrid(); updateTargets(); }));", "document.querySelectorAll('.trackBtn').forEach(btn=>btn.addEventListener('click',(e)=>{ e.preventDefault(); e.stopPropagation(); activeTrack=btn.dataset.track; selectedNode=null; sceneOffsetTarget=0; document.querySelectorAll('.trackBtn').forEach(b=>{ const on=b===btn; b.classList.toggle('active',on); b.setAttribute('aria-pressed',on?'true':'false'); }); setOverview(); renderGrid(); updateTargets(); }));")
+          ]
+
+          missing = []
+          for old, new in replacements:
+              if old not in s:
+                  missing.append(old[:120])
+              else:
+                  s = s.replace(old, new, 1)
+
+          if missing:
+              raise SystemExit('Patch anchors missing:\n' + '\n'.join(missing))
+
+          p.write_text(s, encoding='utf-8')
+
+      - name: Validate diff
+        run: |
+          git diff --check
+          grep -q "2026-08-25 mobile readability hotfix" index.html
+          grep -q "e.preventDefault(); e.stopPropagation(); activeTrack=btn.dataset.track" index.html
+
+      - name: Commit hotfix
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add index.html
+          git commit -m "Fix mobile roadmap readability and track switching"
+          git push
