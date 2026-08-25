@@ -1,0 +1,57 @@
+name: One-time mobile stability hotfix
+
+on:
+  push:
+    paths:
+      - '.github/workflows/roadmap-mobile-stability.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.event.head_commit.message == 'Add one-time mobile stability hotfix'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Reduce mobile GPU memory use
+        shell: python
+        run: |
+          from pathlib import Path
+          p=Path('index.html')
+          s=p.read_text(encoding='utf-8')
+          reps=[
+            ("function glowTexture(color){ const c=document.createElement('canvas'); c.width=512; c.height=512; const x=c.getContext('2d'); const g=x.createRadialGradient(256,256,10,256,256,240); g.addColorStop(0,color+'cc'); g.addColorStop(.35,color+'55'); g.addColorStop(1,color+'00'); x.fillStyle=g; x.fillRect(0,0,512,512); const t=new THREE.CanvasTexture(c); t.colorSpace=THREE.SRGBColorSpace; return t; }",
+             "const glowCache=new Map(); function glowTexture(color){ if(glowCache.has(color)) return glowCache.get(color); const c=document.createElement('canvas'); c.width=128; c.height=128; const x=c.getContext('2d'); const g=x.createRadialGradient(64,64,3,64,64,60); g.addColorStop(0,color+'cc'); g.addColorStop(.35,color+'55'); g.addColorStop(1,color+'00'); x.fillStyle=g; x.fillRect(0,0,128,128); const t=new THREE.CanvasTexture(c); t.colorSpace=THREE.SRGBColorSpace; glowCache.set(color,t); return t; }"),
+            ("cv.width=1600; cv.height=420;", "cv.width=960; cv.height=252;"),
+            ("x.roundRect(16,16,1568,388,38);", "x.roundRect(10,10,940,232,24);"),
+            ("const font1=core?98:88; const font2=core?84:76;", "const font1=core?58:52; const font2=core?50:44;"),
+            ("const max=1280;", "const max=760;"),
+            ("x.fillText(lines[0],800,210,max);", "x.fillText(lines[0],480,126,max);"),
+            ("x.fillText(lines[0],800,168,max+60); x.fillText(lines[1],800,256,max+60);", "x.fillText(lines[0],480,102,max+40); x.fillText(lines[1],480,154,max+40);"),
+            ("x.fillStyle='rgba(220,230,246,.96)'; x.font='800 38px sans-serif'; x.fillText(sub,800,348,1200);", "x.fillStyle='rgba(220,230,246,.96)'; x.font='800 22px sans-serif'; x.fillText(sub,480,210,760);"),
+            ("renderer=new THREE.WebGLRenderer({canvas,antialias:true,alpha:true}); renderer.setPixelRatio(Math.min(devicePixelRatio,2));", "renderer=new THREE.WebGLRenderer({canvas,antialias:innerWidth>720,alpha:true,powerPreference:'low-power'}); renderer.setPixelRatio(Math.min(devicePixelRatio,innerWidth<=720?1.15:1.5));"),
+            ("n.sprite.material.opacity=n.opacity; n.shadow.material.opacity=Math.max(.08,n.opacity*.18);", "n.sprite.material.opacity=n.opacity; n.shadow.material.opacity=Math.max(.04,n.opacity*.12); n.group.visible=(n.opacity>.015 || n.targetOpacity>.015);")
+          ]
+          missing=[]
+          for a,b in reps:
+              if a not in s: missing.append(a[:140])
+              else: s=s.replace(a,b,1)
+          if missing:
+              raise SystemExit('missing anchors:\n'+'\n'.join(missing))
+          p.write_text(s,encoding='utf-8')
+
+      - name: Validate
+        run: |
+          git diff --check
+          grep -q "glowCache=new Map" index.html
+          grep -q "innerWidth<=720?1.15:1.5" index.html
+
+      - name: Commit
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add index.html
+          git commit -m "Reduce mobile GPU memory and prevent tab crashes"
+          git push
